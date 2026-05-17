@@ -1,0 +1,254 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Core entities ───────────────────────────────────────────────────
+
+model User {
+  id          String   @id @default(cuid())
+  email       String?  @unique
+  name        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  persons     Person[]
+  trees       Tree[]
+  memories    Memory[]
+}
+
+model Tree {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  color        String?
+  ownerId      String
+  owner        User     @relation(fields: [ownerId], references: [id])
+  rootPersonId String?  // ← add this
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  persons      PersonTree[]
+}
+
+model Person {
+  id              String    @id @default(cuid())
+
+  // Identity — all optional
+  fullName        String?
+  nickname        String?
+  aliases         String[]  // array of alternate names
+  maidenName      String?
+  nativeNameScript String?  // name in native language/script
+
+  // Gender & pronouns
+  gender          String?
+  sex             String?
+  pronouns        String?
+
+  // Dates — flexible for uncertainty
+  birthDateExact  DateTime?
+  birthYearEst    Int?      // estimated birth year when exact unknown
+  birthAgeMin     Int?      // for age range estimates
+  birthAgeMax     Int?
+  birthPlace      String?
+  currentLocation String?
+  currentAddress  String?
+  deathDateExact  DateTime?
+  deathYearEst    Int?
+  deathPlace      String?
+  causeOfDeath    String?
+
+  // Status
+  isDeceased      Boolean   @default(false)
+  isLiving        Boolean?  // null = unknown
+  isUncertain     Boolean   @default(false)
+  confidenceScore Int?      // 0–100
+
+  // Life information
+  profession      String?
+  company         String?
+  education       String?
+  religion        String?
+  community       String?
+  languages       String[]
+  skills          String[]
+  achievements    String[]
+  interests       String?
+  activities      String?
+  bioNotes        String?
+
+  // Contact — optional, private by default
+  phone           String?   // stored encrypted
+  email           String?   // stored encrypted
+  website         String?
+
+  // Privacy
+  visibility      Visibility @default(PRIVATE)
+  addedById       String?
+  addedBy         User?      @relation(fields: [addedById], references: [id])
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  trees           PersonTree[]
+  relationshipsA  Relationship[] @relation("PersonA")
+  relationshipsB  Relationship[] @relation("PersonB")
+  memories        Memory[]
+  media           Media[]
+}
+
+// Many-to-many: Person ↔ Tree
+model PersonTree {
+  person    Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  personId  String
+  tree      Tree   @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  treeId    String
+
+  @@id([personId, treeId])
+}
+
+model Relationship {
+  id              String           @id @default(cuid())
+  personAId       String
+  personA         Person           @relation("PersonA", fields: [personAId], references: [id], onDelete: Cascade)
+  personBId       String
+  personB         Person           @relation("PersonB", fields: [personBId], references: [id], onDelete: Cascade)
+
+  // Type — flexible, not an enum so you can add custom types later
+  type            RelationshipType
+  customType      String?          // when type = CUSTOM
+
+  // Direction: is this relationship directional? (parent-child yes, sibling no)
+  isDirectional   Boolean          @default(false)
+  // If directional: personA is [type] of personB
+  // e.g. personA is BIOLOGICAL_PARENT of personB
+
+  // Temporal
+  startDate       DateTime?
+  startYearEst    Int?
+  endDate         DateTime?
+  endYearEst      Int?
+  isOngoing       Boolean          @default(true)
+
+  // Uncertainty
+  isUncertain     Boolean          @default(false)
+  confidenceScore Int?             // 0–100
+  notes           String?
+  sourceNote      String?          // citation or evidence reference
+
+  visibility      Visibility       @default(PRIVATE)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model Memory {
+  id          String     @id @default(cuid())
+  personId    String
+  person      Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  content     String     // the memory / story / anecdote text
+  isUncertain Boolean    @default(false)
+  attribution String?    // who this memory came from
+  addedById   String?
+  addedBy     User?      @relation(fields: [addedById], references: [id])
+
+  visibility  Visibility @default(PRIVATE)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Threaded replies
+  parentId    String?
+  parent      Memory?    @relation("MemoryThread", fields: [parentId], references: [id])
+  replies     Memory[]   @relation("MemoryThread")
+}
+
+model Media {
+  id          String    @id @default(cuid())
+  personId    String
+  person      Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  type        MediaType
+  url         String    // local file path or CDN URL
+  caption     String?
+  takenYear   Int?
+  takenPlace  String?
+
+  visibility  Visibility @default(PRIVATE)
+  createdAt   DateTime   @default(now())
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────
+
+enum Visibility {
+  PUBLIC
+  SHARED
+  FAMILY_ONLY
+  CONTRIBUTORS_ONLY
+  PRIVATE
+  ADMIN_ONLY
+}
+
+enum RelationshipType {
+  // Parent types
+  BIOLOGICAL_PARENT
+  ADOPTIVE_PARENT
+  FOSTER_PARENT
+  STEP_PARENT
+  GUARDIAN
+  SURROGATE_PARENT
+  UNKNOWN_PARENT
+
+  // Partner types
+  MARRIED
+  DIVORCED
+  ENGAGED
+  PARTNER
+  LIFE_PARTNER
+  SEPARATED
+  WIDOWED
+  FORMER_PARTNER
+
+  // Sibling types
+  SIBLING
+  HALF_SIBLING
+  STEP_SIBLING
+
+  // Extended family
+  COUSIN
+  GRANDPARENT
+  AUNT_UNCLE
+  NIECE_NEPHEW
+
+  // Non-biological
+  MENTOR
+  CARETAKER
+  FRIEND
+  COMMUNITY
+  TEACHER
+  STUDENT
+  BUSINESS
+
+  // Non-human
+  PET
+
+  // Fallback
+  CUSTOM
+  UNKNOWN
+}
+
+enum MediaType {
+  PHOTO
+  DOCUMENT
+  AUDIO
+  VIDEO
+} 

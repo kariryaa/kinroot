@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <style>
+      .kinput {
+        width: 100%;
+        padding: 9px 12px;
+        background: var(--paper);
+        border: 1px solid var(--border2, rgba(26,23,20,0.22));
+        border-radius: 6px;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 13px;
+        color: var(--ink, #1a1714);
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      .kinput:focus { border-color: var(--gold, #b8934a); }
+      .kinput::placeholder { color: var(--ink3, #8a8078); }
+    </style>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>web</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
